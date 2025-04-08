@@ -1,0 +1,67 @@
+[gd_scene load_steps=6 format=3 uid="uid://ra8ep1hrkv38"]
+
+[ext_resource type="Texture2D" uid="uid://bgkc3dooxo1ao" path="res://Assets/kenney_pixel-platformer/Tiles/tile_0151.png" id="1_0t63x"]
+[ext_resource type="Texture2D" uid="uid://dvu57tkdgyopd" path="res://Assets/kenney_pixel-platformer/Tiles/tile_0152.png" id="2_v7riw"]
+
+[sub_resource type="GDScript" id="GDScript_0t63x"]
+script/source = "extends Node2D
+
+
+# Called when the node enters the scene tree for the first time.
+func _ready():
+	$AnimatedSprite2D.play(\"idle\")
+
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(delta):
+	pass
+
+
+func _on_coin_area_body_entered(body):
+	if body.name == \"Player\" and body is CharacterBody2D:
+		collect_coin()
+
+func collect_coin():
+	$CoinArea/CollisionShape2D.disabled = true
+	Globals.coins_collected += 1
+	
+	Signals.emit_signal(\"coin_collected\")
+	
+	# Simple collection effect
+	var tween = create_tween()
+	tween.tween_property(self, \"scale\", Vector2(1.5, 1.5), 0.1)
+	tween.tween_property(self, \"modulate\", Color(1, 1, 1, 0), 0.2)
+	tween.tween_callback(self.queue_free)
+"
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_pdq0q"]
+radius = 9.0
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_w14il"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_0t63x")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_v7riw")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 5.0
+}]
+
+[node name="Coin" type="Node2D"]
+script = SubResource("GDScript_0t63x")
+
+[node name="CoinArea" type="Area2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CoinArea"]
+shape = SubResource("CircleShape2D_pdq0q")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_w14il")
+animation = &"idle"
+frame_progress = 0.91406
+
+[connection signal="body_entered" from="CoinArea" to="." method="_on_coin_area_body_entered"]

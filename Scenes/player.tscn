@@ -1,0 +1,146 @@
+[gd_scene load_steps=6 format=3 uid="uid://dy5cfr73qqkgn"]
+
+[ext_resource type="Texture2D" uid="uid://c7hy5qbu7eh73" path="res://Assets/kenney_pixel-platformer/Tiles/Characters/tile_0000.png" id="1_onrkg"]
+[ext_resource type="Texture2D" uid="uid://de2nqsxc7jnci" path="res://Assets/kenney_pixel-platformer/Tiles/Characters/tile_0001.png" id="2_i3pqv"]
+
+[sub_resource type="GDScript" id="GDScript_onrkg"]
+script/source = "extends CharacterBody2D
+
+
+const SPEED = 200.0
+const JUMP_VELOCITY = -400.0
+const WALL_SLIDE_SPEED = 50.0
+const WALL_JUMP_PUSH = 400.0
+const GRAVITY = 980.0
+
+var wall_sliding = false
+var wall_direction = 0
+var facing_direction = 1 # 1 for right, -1 for left
+
+func _ready():
+	# Connect our signals to the Player Script
+	Signals.connect(\"damage_player\", Callable(self, \"on_player_damaged\"))
+	Signals.connect(\"player_died\", Callable(self, \"on_player_died\"))
+	Signals.connect(\"level_cleared\", Callable(self, \"on_level_cleared\"))
+	
+	rotation = 0
+	modulate = Color(1, 1, 1, 1)
+	scale = Vector2(1, 1)
+	
+	add_to_group(\"player\")
+	
+func _physics_process(delta):
+	wall_direction = 0
+	wall_sliding = false
+	
+	if is_on_wall() and !is_on_floor():
+		# Determine wall direction
+		if test_move(transform, Vector2.RIGHT * 1):
+			wall_direction = -1
+		elif test_move(transform, Vector2.LEFT * 1):
+			wall_direction = 1
+			
+		wall_sliding = wall_direction != 0
+		
+		if wall_sliding:
+			velocity.y = min(velocity.y, WALL_SLIDE_SPEED)
+			
+	# Add the gravity.
+	if not is_on_floor():
+		velocity += get_gravity() * delta
+
+	# Handle jump and wall jump
+	if Input.is_action_just_pressed(\"ui_accept\"):
+		if is_on_floor():
+			# Regular jump
+			velocity.y = JUMP_VELOCITY
+		elif wall_sliding:
+			# Wall jump - push away from wall
+			velocity.y = JUMP_VELOCITY
+			velocity.x = WALL_JUMP_PUSH * wall_direction
+	
+	# Regular movement
+	var direction = Input.get_axis(\"ui_left\", \"ui_right\")
+	if direction:
+		velocity.x = direction * SPEED
+		facing_direction = 1 if direction > 0 else -1
+		if has_node(\"AnimatedSprite2D\"):
+			$AnimatedSprite2D.flip_h = (facing_direction < 0)
+			$AnimatedSprite2D.play(\"move\")
+	else:
+		velocity.x = move_toward(velocity.x, 0, SPEED)
+		if has_node(\"AnimatedSprite2D\"):
+			$AnimatedSprite2D.play(\"idle\")
+
+	move_and_slide()
+
+func on_player_damaged():
+	Globals.health -= 1
+	# Apply knockback
+	velocity = Vector2(-350 * facing_direction, -350)
+	
+	# Create flash effect
+	if has_node(\"AnimatedSprite2D\"):
+		$AnimatedSprite2D.modulate = Color(10, 10, 10, 1)  # Bright flash
+		var timer = get_tree().create_timer(0.2)
+		# Reset flash
+		timer.connect(\"timeout\", Callable(self, \"_on_flash_timeout\"))
+	
+func _on_flash_timeout():
+	# Reset sprite color back to normal
+	if has_node(\"AnimatedSprite2D\"):
+		$AnimatedSprite2D.modulate = Color(1, 1, 1, 1)  # Normal color
+
+func on_player_died():
+	# Disable player controls
+	set_physics_process(false)
+	
+func on_level_cleared():
+	set_physics_process(false)
+	
+	var tween = create_tween()
+	if has_node(\"AnimatedSprite2D\"):
+		tween.tween_property($AnimatedSprite2D, \"rotation\", 6.28, 1.0)  # Rotate 360 degrees
+		tween.parallel().tween_property(self, \"position\", position + Vector2(0, -50), 1.0)  # Float upward
+		tween.parallel().tween_property(self, \"modulate\", Color(1, 1, 1, 0.5), 0.8)  # Partial fade out
+		
+	# Then scale down to nothing
+	tween.tween_property(self, \"scale\", Vector2.ZERO, 0.3)	
+"
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_hqtel"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_onrkg")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_onrkg")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_i3pqv")
+}],
+"loop": true,
+"name": &"move",
+"speed": 5.0
+}]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_sweqy"]
+size = Vector2(20, 21)
+
+[node name="Player" type="CharacterBody2D"]
+script = SubResource("GDScript_onrkg")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_hqtel")
+animation = &"move"
+frame_progress = 0.502592
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -0.5)
+shape = SubResource("RectangleShape2D_sweqy")
