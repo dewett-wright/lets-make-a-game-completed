@@ -1,4 +1,4 @@
-# Let's Make a Game - Completed Code
+# Let's Make a Game Together in Godot - Completed Code
 
 This repository contains the completed code for the "Let's Make a Game Together" Godot tutorial series.
 
